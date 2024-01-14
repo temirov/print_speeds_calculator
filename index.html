@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Speed Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+    <style>
+        /* Add your CSS styling here */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="input-group">
+        <label for="filamentType">Filament Type:</label>
+        <select id="filamentType" v-model="selectedFilament">
+            <option v-for="filament in sortedFilamentKeys" :value="filament">{{ filament }}</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label for="nozzleDiameter">Nozzle Diameter:</label>
+        <select id="nozzleDiameter" v-model="nozzleDiameter" @change="updateLayerOptions">
+            <option v-for="diameter in nozzleDiameters" :value="diameter">{{ diameter }}</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label for="volumetricSpeed">Volumetric Max Speed (mm³/s):</label>
+        <input type="number" id="volumetricSpeed" v-model.number="volumetricSpeed">
+    </div>
+
+    <div class="input-group">
+        <label for="layerHeight">Layer Height:</label>
+        <select v-model="selectedLayerHeight">
+            <option v-for="height in layerHeights" :value="height">{{ height }} mm</option>
+        </select>
+        <input v-if="selectedLayerHeight === 'Custom'" type="number" v-model.number="layerHeight"
+               placeholder="Enter custom height">
+    </div>
+
+    <div class="input-group">
+        <label for="layerWidth">Layer Width:</label>
+        <select v-model="selectedLayerWidth">
+            <option v-for="width in layerWidths" :value="width">{{ width }} mm</option>
+        </select>
+        <input v-if="selectedLayerWidth === 'Custom'" type="number" v-model.number="layerWidth"
+               placeholder="Enter custom width">
+    </div>
+
+    <!-- Display Calculated Speeds -->
+    <div>
+        <strong>Calculated Speeds:</strong>
+        <ul>
+            <li>Outer Wall Speed: {{ outerWallSpeed }} mm/s</li>
+            <li>Inner Wall Speed: {{ innerWallSpeed }} mm/s </li>
+            <li>Sparse Infill Speed: {{ sparseInfillSpeed }} mm/s</li>
+            <li>Internal Solid Infill Speed: {{ internalSolidInfillSpeed }} mm/s</li>
+            <li>Top Surface Speed: {{ topSurfaceSpeed }} mm/s</li>
+            <li>Gap Infill Speed: {{ gapInfillSpeed }} mm/s</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            selectedFilament: null,
+            filamentSpeeds: {
+                'PLA BBL Basic': 21,
+                'PETG BBL Basic': 13,
+                'PETG-CF BBL': 11.5,
+                'PETG': 12,
+                'PLA': 12,
+                'PC BBL': 23.2,
+                'PC': 16,
+                'ABS BBL': 16,
+                'PAHT-CF BBL': 8,
+                // ... add other filament types and their speeds as needed ...
+            },
+            allowedNozzleDiameters: {
+                'PAHT-CF BBL': ['0.4mm', '0.6mm', '0.8mm'],
+                'PETG-CF BBL': ['0.4mm', '0.6mm', '0.8mm'],
+                // ... other filament types with their allowed nozzle diameters ...
+                'default': ['0.2mm', '0.4mm', '0.6mm', '0.8mm'] // Default nozzle diameters
+            },
+            nozzleOptions: {
+                '0.2mm': { heights: [0.06, 0.08, 0.10, 0.12, 0.14], widths: [0.2, 0.22, 0.25] },
+                '0.4mm': { heights: [0.08, 0.12, 0.16, 0.20, 0.24, 0.28], widths: [0.4, 0.42, 0.45] },
+                '0.6mm': { heights: [0.18, 0.24, 0.30, 0.36, 0.42], widths: [0.6, 0.62] },
+                '0.8mm': { heights: [0.24, 0.32, 0.40, 0.48, 0.56], widths: [0.8, 0.82] },
+                // ... add more options as needed ...
+            },
+            nozzleDiameter: '',
+            nozzleDiameters: ['0.2mm', '0.4mm', '0.6mm', '0.8mm'],
+            layerHeights: [],
+            layerWidths: [],
+            volumetricSpeed: 0,
+            selectedLayerHeight: '', // Bound to the layer height dropdown
+            layerHeight: 0, // For custom input
+            selectedLayerWidth: '', // Bound to the layer width dropdown
+            layerWidth: 0, // For custom input
+        },
+        mounted() {
+            this.selectedFilament = Object.keys(this.filamentSpeeds)[0];
+            this.nozzleDiameter = this.nozzleDiameters[1];
+            this.updateLayerOptions(); // Initialize layer options on load
+        },
+        watch: {
+            selectedFilament(newVal) {
+                // Update volumetric speed and available nozzle diameters when filament type changes
+                this.volumetricSpeed = this.filamentSpeeds[newVal];
+                this.updateNozzleDiameters(newVal);
+                this.updateLayerOptions();
+            }
+        },
+        computed: {
+            sortedFilamentKeys() {
+                return Object.keys(this.filamentSpeeds).sort();
+            },
+
+            outerWallSpeed() {
+                // Placeholder formula
+                return this.calculateSpeed(1);
+            },
+            innerWallSpeed() {
+                // Placeholder formula
+                let innerWallSpeedC = 3/2;
+                return this.calculateSpeed(innerWallSpeedC);
+            },
+            sparseInfillSpeed() {
+                // Placeholder formula
+                let sparseInfillSpeedC = 33/20;
+                return this.calculateSpeed(sparseInfillSpeedC);
+            },
+            internalSolidInfillSpeed() {
+                // Placeholder formula
+                let internalSolidInfillSpeedC = 3/2;
+                return this.calculateSpeed(internalSolidInfillSpeedC);
+            },
+            topSurfaceSpeed() {
+                // Placeholder formula
+                return this.calculateSpeed(1);
+            },
+            gapInfillSpeed() {
+                // Placeholder formula
+                let gapInfillSpeedC = 3/2;
+                return this.calculateSpeed(gapInfillSpeedC);
+            }
+        },
+        methods: {
+            updateNozzleDiameters(selectedFilament) {
+                // Check if the selected filament has specific allowed nozzle diameters
+                if (this.allowedNozzleDiameters[selectedFilament]) {
+                    this.nozzleDiameters = this.allowedNozzleDiameters[selectedFilament];
+                } else {
+                    // If not, use the default nozzle diameters
+                    this.nozzleDiameters = this.allowedNozzleDiameters['default'];
+                }
+
+                // Reset the selected nozzle diameter to the first available option
+                this.nozzleDiameter = this.nozzleDiameters[1];
+            },
+            updateLayerOptions() {
+                this.layerHeights = this.nozzleOptions[this.nozzleDiameter].heights;
+                this.layerWidths = this.nozzleOptions[this.nozzleDiameter].widths;
+
+                // Reset selected layer height and width
+                this.selectedLayerHeight = this.layerHeights[2];
+                this.selectedLayerWidth = this.layerWidths[1];
+            },
+            calculateSpeed(factor) {
+                let height = this.selectedLayerHeight !== 'Custom' ? parseFloat(this.selectedLayerHeight) : this.layerHeight;
+                let width = this.selectedLayerWidth !== 'Custom' ? parseFloat(this.selectedLayerWidth) : this.layerWidth;
+
+                if (this.volumetricSpeed > 0 && height > 0 && width > 0) {
+                    return Math.round((this.volumetricSpeed / (height * width)) * factor);
+                } else {
+                    return 0;
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
